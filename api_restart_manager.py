@@ -73,38 +73,44 @@ def start_specific_api(api_name):
     if not config:
         print(f"❌ Unknown API: {api_name}")
         return None
-    
+
     try:
         python_exe = sys.executable
-        
+
         cmd = [
             python_exe,
             "-m", "uvicorn",
             config["app_module"],
             "--host", "0.0.0.0",
-            "--port", str(config["port"])
+            "--port", str(config["port"]),
         ]
-        
+
         print(f"📂 Working directory: {SCRIPT_DIR}")
         print(f"🐍 Python executable: {python_exe}")
         print(f"🚀 Starting {api_name} on port {config['port']}...")
-        
-        if os.name == 'nt':
+
+        # Detach child so stopping the monitor (Ctrl+C) won't stop the API.
+        # Also avoid PIPEs; when parent exits, closed pipes can break the child.
+        stdout_target = subprocess.DEVNULL
+        stderr_target = subprocess.DEVNULL
+
+        if os.name == "nt":
             process = subprocess.Popen(
                 cmd,
                 cwd=SCRIPT_DIR,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                stdout=stdout_target,
+                stderr=stderr_target,
+                creationflags=subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP,
             )
         else:
             process = subprocess.Popen(
                 cmd,
                 cwd=SCRIPT_DIR,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdout=stdout_target,
+                stderr=stderr_target,
+                start_new_session=True,
             )
-        
+
         print(f"✅ {api_name} restart initiated (PID: {process.pid})")
         return process
     except Exception as e:
